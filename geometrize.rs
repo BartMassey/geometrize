@@ -141,9 +141,8 @@ fn image_expand_luma(img: &mut GrayBuffer) {
         .max()
         .unwrap();
     let scale = 65536.0 / (max as f64 - min as f64);
-    let offset = 65536.0 / min as f64;
     for p in img.pixels_mut() {
-        p[0] = ((p[0] - min) as f64 * scale + offset) as u16;
+        p[0] = ((p[0] - min) as f64 * scale) as u16;
     }
 }
 
