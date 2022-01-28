@@ -1,8 +1,13 @@
 # geometrize: image contrast retiler toy
 Bart Massey 2022
 
-This little Rust toy takes an input image and converts it to
-grayscale. It then
+This little Rust toy takes an input image and "geometrizes"
+it.  `geometrize` borrows the approach of this
+[IOCCC Winner](https://www.ioccc.org/2020/kurdyukov2/index.html)
+by Ilya Kurdyukov: such a nice graphic idea.
+
+The program first converts the input image to grayscale. It
+then
 
 1. Splits the image either horizontally or vertically into
    two pieces, in a way that minimizes the pixel
@@ -25,6 +30,8 @@ Here is a picture of me:
 Here is the geometrization of that picture:
 
 ![geometrized picture of Bart](bart-geometrized.png)
+
+Thanks to Ilya Kurdyukov for their inspiration.
 
 This work is made available under the "Copyleft Next License
 version 0.3.1".  Please see the file `LICENSE.txt` in this
