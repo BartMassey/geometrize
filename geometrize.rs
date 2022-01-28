@@ -4,14 +4,14 @@ use ordered_float::OrderedFloat;
 
 type GrayBuffer = ImageBuffer<Luma<u16>, Vec<u16>>;
 
-fn image_stats(source: &SubImage<&GrayBuffer>) -> (f64, f64) {
-    let (width, height) = source.dimensions();
+fn image_stats(img: &SubImage<&GrayBuffer>) -> (f64, f64) {
+    let (width, height) = img.dimensions();
     let n = width as f64 * height as f64;
-    let mean = source
+    let mean = img
         .pixels()
         .map(|(_, _, p)| p[0] as f64)
         .sum::<f64>() / n;
-    let variance = source
+    let variance = img
         .pixels()
         .map(|(_, _, p)| {
             let p = p[0] as f64;
@@ -22,13 +22,13 @@ fn image_stats(source: &SubImage<&GrayBuffer>) -> (f64, f64) {
     (mean, variance)
 }
 
-fn decontrast(img: &mut SubImage<&mut GrayBuffer>, mean: f64) {
+fn decontrast(img: &mut SubImage<&mut GrayBuffer>, mean: f64, contrast: f64) {
     let (width, height) = img.dimensions();
     for x in 0..width {
         for y in 0..height {
             let p = img.get_pixel(x, y);
             let dp = p[0] as f64 - mean;
-            img.put_pixel(x, y, [(mean + dp / 2.0) as u16].into());
+            img.put_pixel(x, y, [(mean + dp * contrast) as u16].into());
         }
     }
 }
@@ -59,7 +59,7 @@ impl std::cmp::Ord for Cut {
     }
 }
 
-fn best_vcut(img: &SubImage<&mut GrayBuffer>) -> Cut {
+fn best_hcut(img: &SubImage<&mut GrayBuffer>) -> Cut {
     let (width, height) = img.dimensions();
     (1..height - 1)
         .map(|y| {
@@ -79,7 +79,7 @@ fn best_vcut(img: &SubImage<&mut GrayBuffer>) -> Cut {
 }
 
 // XXX So much copy-paste.
-fn best_hcut(img: &SubImage<&mut GrayBuffer>) -> Cut {
+fn best_vcut(img: &SubImage<&mut GrayBuffer>) -> Cut {
     let (width, height) = img.dimensions();
     (1..width - 1)
         .map(|x| {
@@ -98,20 +98,31 @@ fn best_hcut(img: &SubImage<&mut GrayBuffer>) -> Cut {
         .unwrap()
 }
 
-fn geometrize(img: &mut SubImage<&mut GrayBuffer>) {
+fn geometrize(img: &mut SubImage<&mut GrayBuffer>, depth: usize, contrast: f64) {
+    if depth == 0 {
+        return;
+    }
     let (width, height) = img.dimensions();
     let hcut = best_hcut(img);
     let vcut = best_vcut(img);
     if hcut < vcut {
-        let Cut { coord: x, means: [m1, m2], .. } = hcut;
-        eprintln!("at x={x} {m1}/{m2}");
-        decontrast(&mut img.sub_image(0, 0, x, height), m1);
-        decontrast(&mut img.sub_image(x, 0, width - x, height), m2);
-    } else {
-        let Cut { coord: y, means: [m1, m2], .. } = vcut;
+        let Cut { coord: y, means: [m1, m2], .. } = hcut;
         eprintln!("at y={y} {m1}/{m2}");
-        decontrast(&mut img.sub_image(0, 0, width, y), m1);
-        decontrast(&mut img.sub_image(0, y, width, height - y), m2);
+        let mut top = img.sub_image(0, 0, width, y);
+        decontrast(&mut top, m1, contrast);
+        geometrize(&mut top, depth - 1, contrast);
+        let mut bottom = img.sub_image(0, y, width, height - y);
+        decontrast(&mut bottom, m2, contrast);
+        geometrize(&mut bottom, depth - 1, contrast);
+    } else {
+        let Cut { coord: x, means: [m1, m2], .. } = vcut;
+        eprintln!("at x={x} {m1}/{m2}");
+        let mut left = img.sub_image(0, 0, x, height);
+        decontrast(&mut left, m1, contrast);
+        geometrize(&mut left, depth - 1, contrast);
+        let mut right = img.sub_image(x, 0, width - x, height);
+        decontrast(&mut right, m2, contrast);
+        geometrize(&mut right, depth - 1, contrast);
     }
 }
 
@@ -119,6 +130,6 @@ fn main() {
     let argv: Vec<String> = std::env::args().collect();
     let mut img = ImageReader::open(&argv[1]).unwrap().decode().unwrap().into_luma16();
     let (width, height) = img.dimensions();
-    geometrize(&mut img.sub_image(0, 0, width, height));
+    geometrize(&mut img.sub_image(0, 0, width, height), 1, 0.5);
     img.save(&argv[2]).unwrap();
 }
