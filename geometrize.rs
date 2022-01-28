@@ -67,7 +67,7 @@ fn best_hcut(img: &SubImage<&mut GrayBuffer>) -> Cut {
             let (m_top, v_top) = image_stats(&top);
             let bottom = img.view(0, y, width, height - y);
             let (m_bottom, v_bottom) = image_stats(&bottom);
-            let score = v_top * y as f64 + v_bottom * (height - y) as f64;
+            let score = (v_top * y as f64 + v_bottom * (height - y) as f64) / height as f64;
             Cut {
                 coord: y,
                 means: [m_top, m_bottom],
@@ -87,7 +87,7 @@ fn best_vcut(img: &SubImage<&mut GrayBuffer>) -> Cut {
             let (m_left, v_left) = image_stats(&left);
             let right = img.view(x, 0, width - x, height);
             let (m_right, v_right) = image_stats(&right);
-            let score = v_left * x as f64 + v_right * (width - x) as f64;
+            let score = (v_left * x as f64 + v_right * (width - x) as f64) / width as f64;
             Cut {
                 coord: x,
                 means: [m_left, m_right],
@@ -126,10 +126,37 @@ fn geometrize(img: &mut SubImage<&mut GrayBuffer>, depth: usize, contrast: f64) 
     }
 }
 
+
 fn main() {
-    let argv: Vec<String> = std::env::args().collect();
-    let mut img = ImageReader::open(&argv[1]).unwrap().decode().unwrap().into_luma16();
+    let args = argwerk::args! {
+        /// Image geometrizer.
+        "geometrize" {
+            depth: usize = 1,
+            contrast: f64 = 0.5,
+            source: String,
+            dest: String,
+        }
+        /// Partition depth. (default: 1).
+        ["-d" | "--depth", int] => {
+            depth = str::parse(&int)?;
+        }
+        /// Contrast factor. (default: 0.5).
+        ["-c" | "--contrast", float] => {
+            contrast = str::parse(&float)?;
+        }
+        /// Input and output image.
+        [src, dst] => {
+            source = src;
+            dest = dst;
+        }
+    }.unwrap_or_else(|e| {
+        eprintln!("{}", e);
+        std::process::exit(1);
+    });
+
+    let mut img = ImageReader::open(&args.source).unwrap().decode().unwrap().into_luma16();
     let (width, height) = img.dimensions();
-    geometrize(&mut img.sub_image(0, 0, width, height), 1, 0.5);
-    img.save(&argv[2]).unwrap();
+    let sub_image = &mut img.sub_image(0, 0, width, height);
+    geometrize(sub_image, args.depth, args.contrast);
+    img.save(&args.dest).unwrap();
 }
