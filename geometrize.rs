@@ -103,6 +103,9 @@ fn geometrize(img: &mut SubImage<&mut GrayBuffer>, depth: usize, contrast: f64) 
         return;
     }
     let (width, height) = img.dimensions();
+    if width < 5 || height < 5 {
+        return;
+    }
     let hcut = best_hcut(img);
     let vcut = best_vcut(img);
     if hcut < vcut {
