@@ -1,14 +1,14 @@
 [package]
 name = "geometrize"
+authors = ["Bart Massey <bart@cs.pdx.edu>"]
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license-file = "LICENSE.txt"
 
 [dependencies]
-argwerk = "0.20.0"
-image = "0.23.14"
-ordered-float = "2.10.0"
+argwerk = "0.20"
+image = "0.23"
+ordered-float = "2"
 
 [[bin]]
 name = "geometrize"
