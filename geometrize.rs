@@ -110,7 +110,6 @@ fn geometrize(img: &mut SubImage<&mut GrayBuffer>, depth: usize, contrast: f64) 
     let vcut = best_vcut(img);
     if hcut < vcut {
         let Cut { coord: y, means: [m1, m2], .. } = hcut;
-        eprintln!("at y={y} {m1}/{m2}");
         let mut top = img.sub_image(0, 0, width, y);
         decontrast(&mut top, m1, contrast);
         geometrize(&mut top, depth - 1, contrast);
@@ -119,7 +118,6 @@ fn geometrize(img: &mut SubImage<&mut GrayBuffer>, depth: usize, contrast: f64) 
         geometrize(&mut bottom, depth - 1, contrast);
     } else {
         let Cut { coord: x, means: [m1, m2], .. } = vcut;
-        eprintln!("at x={x} {m1}/{m2}");
         let mut left = img.sub_image(0, 0, x, height);
         decontrast(&mut left, m1, contrast);
         geometrize(&mut left, depth - 1, contrast);
@@ -129,6 +127,25 @@ fn geometrize(img: &mut SubImage<&mut GrayBuffer>, depth: usize, contrast: f64) 
     }
 }
 
+
+fn image_expand_luma(img: &mut GrayBuffer) {
+    // XXX Two passes here is gross.
+    let min = img
+        .pixels()
+        .map(|p| p[0])
+        .min()
+        .unwrap();
+    let max = img
+        .pixels()
+        .map(|p| p[0])
+        .max()
+        .unwrap();
+    let scale = 65536.0 / (max as f64 - min as f64);
+    let offset = 65536.0 / min as f64;
+    for p in img.pixels_mut() {
+        p[0] = ((p[0] - min) as f64 * scale + offset) as u16;
+    }
+}
 
 fn main() {
     let args = argwerk::args! {
@@ -161,5 +178,6 @@ fn main() {
     let (width, height) = img.dimensions();
     let sub_image = &mut img.sub_image(0, 0, width, height);
     geometrize(sub_image, args.depth, args.contrast);
+    image_expand_luma(&mut img);
     img.save(&args.dest).unwrap();
 }
