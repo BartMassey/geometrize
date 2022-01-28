@@ -78,12 +78,41 @@ fn best_vcut(img: &SubImage<&mut GrayBuffer>) -> Cut {
         .unwrap()
 }
 
+// XXX So much copy-paste.
+fn best_hcut(img: &SubImage<&mut GrayBuffer>) -> Cut {
+    let (width, height) = img.dimensions();
+    (1..width - 1)
+        .map(|x| {
+            let left = img.view(0, 0, x, height);
+            let (m_left, v_left) = image_stats(&left);
+            let right = img.view(x, 0, width - x, height);
+            let (m_right, v_right) = image_stats(&right);
+            let score = v_left * x as f64 + v_right * (width - x) as f64;
+            Cut {
+                coord: x,
+                means: [m_left, m_right],
+                score,
+            }
+        })
+        .min()
+        .unwrap()
+}
+
 fn geometrize(img: &mut SubImage<&mut GrayBuffer>) {
     let (width, height) = img.dimensions();
-    let Cut { coord: y, means: [m1, m2], .. } = best_vcut(img);
-    eprintln!("at {y} {m1}/{m2}");
-    decontrast(&mut img.sub_image(0, 0, width, y), m1);
-    decontrast(&mut img.sub_image(0, y, width, height - y), m2);
+    let hcut = best_hcut(img);
+    let vcut = best_vcut(img);
+    if hcut < vcut {
+        let Cut { coord: x, means: [m1, m2], .. } = hcut;
+        eprintln!("at x={x} {m1}/{m2}");
+        decontrast(&mut img.sub_image(0, 0, x, height), m1);
+        decontrast(&mut img.sub_image(x, 0, width - x, height), m2);
+    } else {
+        let Cut { coord: y, means: [m1, m2], .. } = vcut;
+        eprintln!("at y={y} {m1}/{m2}");
+        decontrast(&mut img.sub_image(0, 0, width, y), m1);
+        decontrast(&mut img.sub_image(0, y, width, height - y), m2);
+    }
 }
 
 fn main() {
